@@ -1,0 +1,13 @@
+[package]
+name = "mock-ft"
+version = "0.1.0"
+edition = "2021"
+description = "A 6-decimal NEP-141 token standing in for USDC in ShowUp's sandbox tests"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "5.29"
+near-contract-standards = "5.29"
