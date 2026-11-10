@@ -30,7 +30,8 @@ export default function TicketPage({ params }: { params: Promise<{ token: string
   const mine = account === ticket.owner;
   const committed = ticket.status === "Committed";
   const shareUrl = `${window.location.origin}/e/${event.id}?ref=${ticket.token_id}`;
-  const tweet = `https://x.com/intent/post?text=${encodeURIComponent(`I'm going to ${p.title}. Committed on @ShowUp, deposit back at the door.`)}&url=${encodeURIComponent(shareUrl)}`;
+  const text = committed ? `I'm going to ${p.title}. Committed with a deposit I get back at the door.` : `I was at ${p.title}. Checked in on NEAR, deposit back at the door.`;
+  const tweet = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
   const qr = renderSVG(`showup:ticket:${ticket.token_id}`, { border: 1 });
 
   const act = async (what: "cancel" | "pass") => {
@@ -64,15 +65,24 @@ export default function TicketPage({ params }: { params: Promise<{ token: string
           <div className="row" style={{ padding: "24px 28px", gap: 24 }}>
             <div aria-label="Ticket code for door staff" role="img" style={{ width: 148, height: 148, background: "#fff", border: "2px solid #111", borderRadius: 12, padding: 6 }} dangerouslySetInnerHTML={{ __html: qr }} />
             <div className="stack" style={{ gap: 8, maxWidth: 300, fontSize: 16, lineHeight: 1.5 }}>
-              <b style={{ fontSize: 18 }}>At the door</b>
-              <span>Point your phone&apos;s camera at the door screen and open the link. No phone? Staff can scan this code.</span>
+              {committed ? (
+                <>
+                  <b style={{ fontSize: 18 }}>At the door</b>
+                  <span>Point your phone&apos;s camera at the door screen and open the link. No phone? Staff can scan this code.</span>
+                </>
+              ) : (
+                <>
+                  <b style={{ fontSize: 18 }}>{statusLabel(ticket.status)}</b>
+                  <span>{ticket.status === "Cancelled" ? "This ticket was cancelled and its deposit returned." : "Your deposit came back at the door. Your share of the no-shows arrives after the event is settled."}</span>
+                </>
+              )}
             </div>
           </div>
         </section>
 
         <div className="side-col stack" style={{ gap: 18 }}>
           <section className="card shadow stack">
-            <h2 className="h2" style={{ fontSize: 22 }}>Tell people you&apos;re going</h2>
+            <h2 className="h2" style={{ fontSize: 22 }}>{committed ? "Tell people you're going" : "Tell people you were there"}</h2>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={`/api/card/${ticket.token_id}`} alt={`Share card for ${p.title}`} style={{ width: "100%", borderRadius: 12, border: "2px solid #111" }} />
             <a href={tweet} target="_blank" rel="noreferrer" className="btn btn-dark">Post to X</a>
