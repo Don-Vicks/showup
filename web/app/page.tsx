@@ -1,23 +1,49 @@
 import Link from "next/link";
 import { CONTRACT } from "@/lib/config";
-import { formatDay } from "@/lib/format";
-import { formatUsdc, listEvents, type ShowUpEvent } from "@/lib/near";
+import { isUpcoming, listEvents, type EventCard } from "@/lib/near";
+import { EventTile } from "./EventTile";
 
 export const dynamic = "force-dynamic";
 
-async function upcoming(): Promise<{ events: ShowUpEvent[]; error: string | null }> {
+async function load(): Promise<{ events: EventCard[]; error: string | null }> {
   if (!CONTRACT) return { events: [], error: "The ShowUp contract isn't deployed yet." };
   try {
-    return { events: await listEvents(12), error: null };
+    return { events: await listEvents(), error: null };
   } catch {
     return { events: [], error: "Couldn't read events from NEAR right now." };
   }
 }
 
-const BANDS = ["block-cobalt", "block-tomato", "block-ink"];
+const ROLES = [
+  {
+    href: "#events",
+    cls: "block-cobalt shadow",
+    title: "Going to an event?",
+    body: "Commit with a dollar or two. Show up and it's back, plus a share of the no-shows'.",
+    cta: "Find an event",
+  },
+  {
+    href: "/new",
+    cls: "block-tomato shadow",
+    title: "Hosting one?",
+    body: "A headcount you can plan around, and sponsor money for every verified guest, paid by the contract.",
+    cta: "Host an event",
+  },
+  {
+    href: "/sponsor",
+    cls: "block-ink",
+    title: "Sponsoring?",
+    body: "Pay per real attendee, checked at the door. Anything not earned comes back to you.",
+    cta: "Sponsor events",
+  },
+];
 
 export default async function Home() {
-  const { events, error } = await upcoming();
+  const { events, error } = await load();
+  const now = Date.now();
+  const upcoming = events.filter((e) => isUpcoming(e, now)).sort((a, b) => a.params.starts_at_ms - b.params.starts_at_ms);
+  const past = events.filter((e) => !isUpcoming(e, now));
+
   return (
     <main className="wrap page">
       <section className="split" style={{ alignItems: "center", paddingTop: 16 }}>
@@ -29,6 +55,7 @@ export default async function Home() {
           <div className="row">
             <Link href="#events" className="btn btn-primary">Find an event</Link>
             <Link href="/new" className="btn">Host an event</Link>
+            <Link href="/proof" style={{ fontWeight: 700, color: "#111" }}>See a real event, start to finish →</Link>
           </div>
         </div>
         <div className="side-col" style={{ display: "flex", justifyContent: "center", padding: "24px 0" }}>
@@ -49,45 +76,45 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="grid">
-        <div className="card block-cobalt shadow stack" style={{ gap: 10 }}>
-          <span className="h2">Guests</span>
-          <span style={{ fontSize: 17, lineHeight: 1.5 }}>Commit with a dollar or two. Show up and it&apos;s back, plus a share of the no-shows&apos;.</span>
+      <section className="grid" aria-label="Start here">
+        {ROLES.map((r) => (
+          <Link key={r.href} href={r.href} className={`card role-card stack ${r.cls}`} style={{ gap: 10, textDecoration: "none" }}>
+            <span className="h2">{r.title}</span>
+            <span style={{ fontSize: 17, lineHeight: 1.5 }}>{r.body}</span>
+            <span style={{ fontWeight: 700, marginTop: "auto" }}>{r.cta} →</span>
+          </Link>
+        ))}
+      </section>
+
+      <Link href="/proof" className="card shadow row" style={{ justifyContent: "space-between", textDecoration: "none", color: "#111" }}>
+        <span className="stack" style={{ gap: 6, flex: "1 1 420px" }}>
+          <span className="eyebrow">Ran on NEAR testnet, 10–11 Nov</span>
+          <span className="h2" style={{ fontSize: 22 }}>4 RSVPs, 3 check-ins, 1 no-show split among the guests who came.</span>
+          <span className="muted">Walk through that event step by step, with every transaction. No wallet needed.</span>
+        </span>
+        <span className="btn btn-dark">See it happen</span>
+      </Link>
+
+      <section id="events" className="stack" style={{ gap: 18, scrollMarginTop: 24 }}>
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h2 className="h2" style={{ fontSize: 30 }}>Coming up</h2>
+          <Link href="/new" style={{ fontWeight: 700 }}>Host your own</Link>
         </div>
-        <div className="card block-tomato shadow stack" style={{ gap: 10 }}>
-          <span className="h2">Hosts</span>
-          <span style={{ fontSize: 17, lineHeight: 1.5 }}>A headcount you can plan around, and sponsor money for every verified guest, paid by the contract.</span>
-        </div>
-        <div className="card block-ink stack" style={{ gap: 10, boxShadow: "4px 4px 0 #ff4d2e" }}>
-          <span className="h2">Sponsors</span>
-          <span style={{ fontSize: 17, lineHeight: 1.5 }}>Pay per real attendee, checked at the door. Anything not earned comes back to you.</span>
+        {error && <p className="error">{error}</p>}
+        {!error && upcoming.length === 0 && <p className="muted">Nothing coming up. <Link href="/new">Host the next one.</Link></p>}
+        <div className="grid">
+          {upcoming.map((e) => <EventTile key={e.id} event={e} />)}
         </div>
       </section>
 
-      <section id="events" className="stack" style={{ gap: 18 }}>
-        <h2 className="h2" style={{ fontSize: 30 }}>Events</h2>
-        {error && <p className="error">{error}</p>}
-        {!error && events.length === 0 && <p className="muted">No events yet. <Link href="/new">Host the first one.</Link></p>}
-        <div className="grid">
-          {events.map((e, i) => (
-            <Link key={e.id} href={`/e/${e.id}`} className="card shadow" style={{ padding: 0, overflow: "hidden", color: "#111", textDecoration: "none", display: "flex", flexDirection: "column" }}>
-              <div className={`${BANDS[i % 3]} stack`} style={{ padding: 18, gap: 6, borderBottom: "2px solid #111", minHeight: 96 }}>
-                <span className="mono" style={{ fontSize: 14 }}>{formatDay(e.params.starts_at_ms)}</span>
-                <span className="display" style={{ fontSize: 22, lineHeight: 1.1 }}>{e.params.title}</span>
-              </div>
-              <div className="stack" style={{ padding: 18, gap: 8, fontSize: 15 }}>
-                <span>{e.params.venue}</span>
-                <span className="row" style={{ justifyContent: "space-between" }}>
-                  <span>Deposit <b className="mono">{formatUsdc(e.params.deposit)} USDC</b></span>
-                  <span>{Math.max(0, e.params.capacity - e.tickets)} spots left</span>
-                </span>
-                {e.pledges.length > 0 && <span className="pill">Sponsored per guest</span>}
-                {e.cancelled && <span className="pill">Cancelled</span>}
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {past.length > 0 && (
+        <section className="stack" style={{ gap: 18 }}>
+          <h2 className="h2" style={{ fontSize: 24 }}>Already happened</h2>
+          <div className="grid">
+            {past.map((e) => <EventTile key={e.id} event={e} href={`/e/${e.id}/report`} />)}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

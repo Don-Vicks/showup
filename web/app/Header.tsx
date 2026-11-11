@@ -24,7 +24,10 @@ export function Header() {
         <Logo />
         <nav className="nav" aria-label="Main">
           <Link href="/#events">Events</Link>
-          <Link href="/new">Host an event</Link>
+          <Link href="/new">Host</Link>
+          <Link href="/sponsor">Sponsor</Link>
+          <Link href="/proof">See it work</Link>
+          {account && <Link href="/me">My ShowUp</Link>}
           {account ? (
             <button type="button" className="btn btn-small" onClick={() => signOut()} title="Sign out">
               {account.length > 24 ? `${account.slice(0, 10)}…${account.slice(-6)}` : account}
