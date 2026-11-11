@@ -69,6 +69,21 @@ There is no withdraw method for hosts, sponsors or the deployer. End-of-event pa
 ## Testnet data
 
 - **Event 4, "ShowUp test run"** is a real run with test accounts (10–11 Nov): four RSVPs, two phone check-ins, one desk check-in, one no-show, a refused check-in, settlement and payouts. `/proof` lists its transactions; the sponsor payout opens 48 hours after it ended.
+- **Event 5, "Dry run"** (11 Nov) ran every path the site added since: the event and its details created in one call, a guest whose deposit a friend paid, a referred guest who didn't come, a sponsor pledge, the door screen running on the live site, two check-ins with its codes, and a refused check-in. The guests are test accounts signing with near-cli, using the codes that door screen showed (its key, so the same ed25519 signatures); no browser wallet was used. Receipt: [`/e/5/receipt`](https://showup-lake.vercel.app/e/5/receipt).
+
+  | Step | Transaction |
+  | --- | --- |
+  | Event created with details | [`2TrLn44d…`](https://testnet.nearblocks.io/txns/2TrLn44dozVYawJQb5rXw9hoUk1MZkqQV6hpq23zeEGY) |
+  | Sponsor pledges 0.10 USDC per guest, up to 3 | [`DseuKdTy…`](https://testnet.nearblocks.io/txns/DseuKdTy5dPGTM5rJL1xG5s3SKjj6QYKhHwMyF9oTgvd) |
+  | guest1 RSVPs | [`8Z62MdNe…`](https://testnet.nearblocks.io/txns/8Z62MdNeY7w2yeWA6HKrXiobMtGG88x2ozDo5XGxkNsS) |
+  | guest2 pays guest4's deposit | [`45XduivZ…`](https://testnet.nearblocks.io/txns/45XduivZuj5K9M9TTVR1CdBFboTKAFbor73ZaReW8Q7u) |
+  | guest3 RSVPs through guest1's link | [`EKDcCe9r…`](https://testnet.nearblocks.io/txns/EKDcCe9rEDVpN2o13GfceVBaMtaV7x9nY2yrywVZK1HD) |
+  | Door key registered | [`Dqm3ZYs9…`](https://testnet.nearblocks.io/txns/Dqm3ZYs9GGoJca5XxZ7Ds9RaMg9yvUizW6YpYZSFhcYi) |
+  | guest1 checks in; deposit back | [`FvSXTpbn…`](https://testnet.nearblocks.io/txns/FvSXTpbnxyBxsssaN43P5MbGKXXLB6g3MUb5ca6sLCDd) |
+  | guest4 checks in; the deposit guest2 paid goes to guest4 | [`UNGXoy97…`](https://testnet.nearblocks.io/txns/UNGXoy97KH8dizbp9jMvWgiXsUrao2UCfeHjAcC1WPw) |
+  | guest1 tries to check in guest3's ticket: refused | [`57PZLfZw…`](https://testnet.nearblocks.io/txns/57PZLfZwVzKahu1QNv6pVmDCxdFLPfJcoyhsAawTSYqt) |
+
+  Settling opens an hour after the end and the sponsor payout 48 hours after; anyone can trigger either from the report and receipt pages.
 - **Events 1–3 are demo events** marked "(demo)", hosted by `demo-host.showup-app.testnet`, with descriptions written for the demo. Their cover photos are from [Unsplash](https://unsplash.com) (Unsplash License), not from those events.
 - **Program 1** is a demo bounty program funded with 10 test USDC by `sponsor.showup-app.testnet`; event 1 is approved and event 3 has applied.
 
