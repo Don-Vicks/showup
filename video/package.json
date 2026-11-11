@@ -1,0 +1,9 @@
+{
+  "name": "showup-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capture": "node scripts/capture.mjs",
+    "render": "remotion render src/index.tsx ShowUpDemo out/showup-demo.mp4 --codec h264 --crf 18 --color-space bt709"
+  }
+}
