@@ -16,6 +16,8 @@ Built for NEAR HACKATHON (1–14 Nov 2026). Tracks: realworld, social, nfts.
 
 **No wallet? Start at [showup-lake.vercel.app/proof](https://showup-lake.vercel.app/proof):** one real testnet event, step by step, with every transaction linked and the numbers read live from the contract.
 
+**Demo video (60 s):** [`video/showup-demo.mp4`](video/showup-demo.mp4), real screens of the live site. Its source is in [`video/`](video) (Remotion): `scripts/capture.mjs` screenshots the site, and `npm run render` builds the video.
+
 ## Status
 
 | Piece | State |
@@ -112,6 +114,7 @@ Contract code is in `contracts/showup/src/lib.rs`; tests are in `contracts/showu
 contracts/showup    The NEAR contract (near-sdk 5.29, near-contract-standards)
 contracts/mock-ft   A 6-decimal token for the sandbox tests
 web                 Next.js app (NEAR Connect for wallets)
+video               The demo video and its Remotion source
 SPEC.md             The product specification
 ```
 
