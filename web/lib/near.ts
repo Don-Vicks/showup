@@ -39,7 +39,45 @@ export interface ShowUpEvent {
   no_show_pot: string;
   headcounts: { count: number; at_ms: number; evidence_hash: string }[];
   pledges: Pledge[];
-  programs: { program_id: number; approved: boolean; reserved: string; done: boolean; paid_to_host: string }[];
+  programs: ProgramLink[];
+}
+
+export interface ProgramLink {
+  program_id: number;
+  approved: boolean;
+  reserved: string;
+  decision: boolean | null;
+  done: boolean;
+  paid_to_host: string;
+}
+
+export interface AgendaItem {
+  at: string;
+  what: string;
+}
+
+/** Stored apart from the event (see `set_details`); events may have none. */
+export interface EventDetails {
+  host_name: string;
+  description: string;
+  cover_url: string | null;
+  agenda: AgendaItem[];
+}
+
+export interface Program {
+  id: number;
+  owner: string;
+  title: string;
+  tag: string;
+  rate: string;
+  per_event_cap: number;
+  available: string;
+  paid_out: string;
+}
+
+/** An event with its details, as most pages show it. */
+export interface EventCard extends ShowUpEvent {
+  details: EventDetails | null;
 }
 
 export type TicketStatus = "Committed" | "Cancelled" | { CheckedIn: { at_ms: number; verified: boolean } };
@@ -94,11 +132,41 @@ export async function view<T>(method: string, args: Record<string, unknown> = {}
   return JSON.parse(new TextDecoder().decode(new Uint8Array(body.result.result))) as T;
 }
 
-export async function listEvents(limit = 12): Promise<ShowUpEvent[]> {
+export async function getEvent(id: number): Promise<EventCard | null> {
+  const [event, details] = await Promise.all([
+    view<ShowUpEvent | null>("get_event", { event_id: id }),
+    view<EventDetails | null>("get_details", { event_id: id }).catch(() => null),
+  ]);
+  return event ? { ...event, details } : null;
+}
+
+/** Newest first. The contract numbers events from 1, so this reads the last `limit` of them. */
+export async function listEvents(limit = 60): Promise<EventCard[]> {
   const last = await view<number>("last_event_id");
   const ids = Array.from({ length: Math.min(limit, last) }, (_, i) => last - i);
-  const events = await Promise.all(ids.map((id) => view<ShowUpEvent | null>("get_event", { event_id: id })));
-  return events.filter((e): e is ShowUpEvent => e !== null);
+  const events = await Promise.all(ids.map((id) => getEvent(id).catch(() => null)));
+  return events.filter((e): e is EventCard => e !== null);
+}
+
+export async function listPrograms(): Promise<Program[]> {
+  const last = await view<number>("last_program_id");
+  const ids = Array.from({ length: last }, (_, i) => last - i);
+  const programs = await Promise.all(ids.map((id) => view<Program | null>("get_program", { program_id: id }).catch(() => null)));
+  return programs.filter((p): p is Program => p !== null);
+}
+
+export const isUpcoming = (e: ShowUpEvent, now = Date.now()) => !e.cancelled && now < e.params.ends_at_ms;
+
+/** What a host has run before: events that ended, and guests who checked in with their own phone. */
+export interface HostRecord {
+  hosted: number;
+  verified: number;
+}
+
+export async function hostRecord(host: string, events: ShowUpEvent[], now = Date.now()): Promise<HostRecord> {
+  const past = events.filter((e) => e.host === host && !e.cancelled && e.params.ends_at_ms < now);
+  const reports = await Promise.all(past.map((e) => view<Report>("report", { event_id: e.id }).catch(() => null)));
+  return { hosted: past.length, verified: reports.reduce((n, r) => n + (r?.verified ?? 0), 0) };
 }
 
 /** USDC has 6 decimals; amounts travel as integer strings. */
@@ -165,6 +233,31 @@ export function pledgeTransactions(account: string, eventId: number, rate: strin
     ),
   ];
 }
+
+/** NEAR attached to `create_event_with_details` / `set_details` for storage; the unused part is refunded. */
+export const DETAILS_DEPOSIT = "60000000000000000000000"; // 0.06 NEAR
+
+export function fundProgramTransactions(account: string, programId: number, amount: string): WalletTransaction[] {
+  return [
+    call("storage_deposit", { account_id: account, registration_only: true }, USDC_STORAGE, 30, USDC),
+    call("ft_transfer_call", { receiver_id: CONTRACT, amount, msg: JSON.stringify({ FundProgram: { program_id: programId } }) }, ONE_YOCTO, 150, USDC),
+  ];
+}
+
+/** Agenda typed one item per line: "18:00 Doors open" or "18:00 – Doors open". */
+export function parseAgenda(text: string): AgendaItem[] {
+  return text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 12)
+    .map((l) => {
+      const m = l.match(/^(\d{1,2}[:.]\d{2}|\d{1,2}\s?(?:am|pm))\s*[-–:]?\s*(.+)$/i);
+      return m ? { at: m[1], what: m[2].slice(0, 120) } : { at: "", what: l.slice(0, 120) };
+    });
+}
+
+export const agendaText = (items: AgendaItem[]) => items.map((a) => (a.at ? `${a.at} ${a.what}` : a.what)).join("\n");
 
 export const DOOR_WINDOW_MS = 20_000;
 export const doorMessage = (eventId: number, window: number) => `showup:door:${eventId}:${window}`;
