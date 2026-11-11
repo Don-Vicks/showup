@@ -87,7 +87,7 @@ export default function TicketPage({ params }: { params: Promise<{ token: string
               ) : (
                 <>
                   <b style={{ fontSize: 18 }}>{statusLabel(ticket.status)}</b>
-                  <span>{ticket.status === "Cancelled" ? "This ticket was cancelled and its deposit returned." : "Your deposit came back at the door. Your share of the no-shows arrives after the event is settled."}</span>
+                  <span>{ticket.status === "Cancelled" ? "This ticket was cancelled and its deposit returned." : event.settled ? "Your deposit came back at the door, and your share of the no-shows was paid when the event settled." : "Your deposit came back at the door. Your share of the no-shows arrives after the event is settled."}</span>
                 </>
               )}
             </div>
