@@ -6,18 +6,28 @@ import { call } from "@/lib/near";
 import { useWallet } from "@/lib/wallet";
 
 /**
- * Anyone may call `release_sponsors` once the wait is over; the contract decides who gets what. The second
- * transaction pushes the credited payouts to the host and sponsors.
+ * Anyone may call `settle` or `release_sponsors` once the wait is over; the contract decides who gets what.
+ * The second transaction pushes the credited payouts to the given accounts.
  */
-export function ReleaseButton({ eventId, payees, label = "Release the sponsor payout" }: { eventId: number; payees: string[]; label?: string }) {
+export function ReleaseButton({
+  eventId,
+  payees,
+  method = "release_sponsors",
+  label = "Release the sponsor payout",
+}: {
+  eventId: number;
+  payees: string[];
+  method?: "release_sponsors" | "settle";
+  label?: string;
+}) {
   const { account, signIn, send, busy } = useWallet();
   const [note, setNote] = useState<{ ok: boolean; text: string; tx?: string | null } | null>(null);
   const release = async () => {
     setNote(null);
     try {
       if (!account && !(await signIn())) return;
-      const tx = await send([call("release_sponsors", { event_id: eventId }, "0", 150), call("withdraw_for", { accounts: payees.slice(0, 20) }, "0", 200)]);
-      setNote({ ok: true, text: "Released and paid out. Reload to see it.", tx });
+      const tx = await send([call(method, { event_id: eventId }, "0", 150), call("withdraw_for", { accounts: payees.slice(0, 20) }, "0", 200)]);
+      setNote({ ok: true, text: method === "settle" ? "Settled and paid out. Reload to see it." : "Released and paid out. Reload to see it.", tx });
     } catch (e) {
       setNote({ ok: false, text: e instanceof Error ? e.message : String(e) });
     }

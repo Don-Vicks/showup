@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CONTRACT, accountUrl } from "@/lib/config";
 import { formatTime, formatWhen } from "@/lib/format";
-import { formatUsdc, view, type Report, type ShowUpEvent } from "@/lib/near";
+import { formatUsdc, view, type Report, type ShowUpEvent, type TicketView } from "@/lib/near";
+import { ReleaseButton } from "../../../ReleaseButton";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,10 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
   const [event, report] = await Promise.all([
     view<ShowUpEvent | null>("get_event", { event_id: eventId }).catch(() => null),
     view<Report>("report", { event_id: eventId }).catch(() => null),
+  ]);
+  const [delays, tickets] = await Promise.all([
+    view<{ settle_ms: number }>("delays").catch(() => null),
+    view<TicketView[]>("get_tickets", { event_id: eventId, limit: 300 }).catch(() => [] as TicketView[]),
   ]);
   if (!event || !report) notFound();
   const p = event.params;
@@ -70,6 +75,9 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
 
         <section className="side-col card stack">
           <h2 className="h2" style={{ fontSize: 20 }}>Where the money goes</h2>
+          {!event.cancelled && !report.settled && delays && Date.now() >= p.ends_at_ms + delays.settle_ms && (
+            <ReleaseButton eventId={event.id} method="settle" label="Settle the no-shows now" payees={[...new Set([event.host, ...tickets.map((t) => t.owner)])]} />
+          )}
           <div className="scroll-x">
             <table>
               <tbody>

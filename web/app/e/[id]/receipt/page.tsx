@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { CONTRACT, accountUrl } from "@/lib/config";
 import { formatTime, formatWhen } from "@/lib/format";
 import { formatUsdc, getEvent, view, type Pledge, type Program, type Report, type TicketView } from "@/lib/near";
+import { ReleaseButton } from "../../../ReleaseButton";
 import { PrintButton } from "./PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -120,6 +121,9 @@ export default async function Receipt({ params, searchParams }: { params: Promis
               <span className="pill">{status(pl.done, pl.decision)}</span>
             </div>
             <Money rate={pl.rate} cap={pl.cap} counted={counted} done={pl.done} paid={pl.paid_to_host} total={BigInt(pl.rate) * BigInt(pl.cap)} />
+            {!pl.done && !event.cancelled && now >= releaseAt && !(report.flagged && pl.decision === null && now < autoAt) && (
+              <span className="no-print"><ReleaseButton eventId={event.id} payees={[event.host, ...event.pledges.map((x) => x.sponsor)]} label="Release it now (anyone can)" /></span>
+            )}
             {pl.decision !== null && <span><b>Funder&apos;s decision:</b> {pl.decision ? "pay the host" : "refused, refunded"}</span>}
             <Lines provenOnly={pl.proven_only} />
           </section>
