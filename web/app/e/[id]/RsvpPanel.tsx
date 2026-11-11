@@ -16,7 +16,7 @@ export function RsvpPanel({ event, referrer }: { event: ShowUpEvent; referrer: s
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const [gifting, setGifting] = useState(false);
   const [friend, setFriend] = useState("");
-  const [gift, setGift] = useState<Step | { kind: "given"; tx: string | null; ticket: string | null }>({ kind: "idle" });
+  const [gift, setGift] = useState<Step | { kind: "checking" } | { kind: "given"; tx: string | null; ticket: string | null }>({ kind: "idle" });
   const p = event.params;
   const closed = event.cancelled || event.settled || Date.now() >= p.starts_at_ms || event.tickets >= p.capacity;
   const waiver = p.waive_after !== null && attended >= p.waive_after;
@@ -42,13 +42,14 @@ export function RsvpPanel({ event, referrer }: { event: ShowUpEvent; referrer: s
 
   const payForFriend = async () => {
     const guest = friend.trim().toLowerCase();
-    setGift({ kind: "working" });
+    setGift({ kind: "checking" });
     try {
       if (!/^([a-z\d]+[-_.])*[a-z\d]+$/.test(guest) || guest.length < 2 || guest.length > 64) throw new Error("That isn't a NEAR account name.");
       if (!(await accountExists(guest))) throw new Error(`${guest} doesn't exist on NEAR ${process.env.NEXT_PUBLIC_NEAR_NETWORK === "mainnet" ? "mainnet" : "testnet"}. Check the spelling.`);
       if (await findTicket(event.id, guest)) throw new Error(`${guest} already has a ticket for this event.`);
       const a = account ?? (await signIn());
       if (!a) return setGift({ kind: "idle" });
+      setGift({ kind: "working" });
       const tx = await send(rsvpTransactions(a, event.id, p.deposit, referrer, guest));
       const t = await findTicket(event.id, guest).catch(() => null);
       setGift({ kind: "given", tx, ticket: t?.token_id ?? null });
@@ -99,8 +100,8 @@ export function RsvpPanel({ event, referrer }: { event: ShowUpEvent; referrer: s
                 <input value={friend} onChange={(e) => setFriend(e.target.value)} placeholder="friend.testnet" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
               </label>
               <span className="muted" style={{ fontSize: 14, lineHeight: 1.5 }}>The ticket is theirs. They check in from their own phone, and the deposit goes back to them, not to you.</span>
-              <button type="button" className="btn btn-dark" onClick={payForFriend} disabled={busy || gift.kind === "working" || !friend.trim()}>
-                {gift.kind === "working" ? "Confirm in your wallet…" : `Pay ${formatUsdc(p.deposit)} USDC for them`}
+              <button type="button" className="btn btn-dark" onClick={payForFriend} disabled={busy || gift.kind === "working" || gift.kind === "checking" || !friend.trim()}>
+                {gift.kind === "checking" ? "Checking their account…" : gift.kind === "working" ? "Confirm in your wallet…" : `Pay ${formatUsdc(p.deposit)} USDC for them`}
               </button>
             </>
           )}

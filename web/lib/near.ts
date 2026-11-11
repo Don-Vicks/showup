@@ -107,6 +107,9 @@ export interface Report {
   no_show_pot: string;
 }
 
+/** A read that hangs this long is abandoned (and retried by `view`). */
+const RPC_TIMEOUT_MS = 8_000;
+
 /** Read-only call on a contract through JSON-RPC. Busy or flaky RPC answers are retried; contract errors aren't. */
 export async function view<T>(method: string, args: Record<string, unknown> = {}, contract = CONTRACT): Promise<T> {
   if (!contract) throw new Error("NO_CONTRACT");
@@ -119,6 +122,7 @@ export async function view<T>(method: string, args: Record<string, unknown> = {}
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
+        signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
         body: JSON.stringify({
           jsonrpc: "2.0",
           id: "showup",
@@ -184,12 +188,18 @@ export async function findTicket(eventId: number, account: string): Promise<Tick
 
 /** Whether a NEAR account exists, so a deposit isn't paid for a mistyped name. */
 export async function accountExists(account: string): Promise<boolean> {
-  const res = await fetch(RPC_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: "showup", method: "query", params: { request_type: "view_account", finality: "final", account_id: account } }),
-  });
-  const body = (await res.json()) as { result?: unknown; error?: unknown };
+  let body: { result?: unknown; error?: unknown };
+  try {
+    const res = await fetch(RPC_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
+      body: JSON.stringify({ jsonrpc: "2.0", id: "showup", method: "query", params: { request_type: "view_account", finality: "final", account_id: account } }),
+    });
+    body = await res.json();
+  } catch {
+    throw new Error("Couldn't reach NEAR to check that account. Try again.");
+  }
   return Boolean(body.result) && !body.error;
 }
 
