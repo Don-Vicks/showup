@@ -479,3 +479,40 @@ async fn the_host_sets_event_details_and_pays_only_for_their_storage() -> anyhow
     assert_eq!(last_program, 0);
     Ok(())
 }
+
+#[tokio::test]
+async fn a_friend_pays_the_deposit_and_the_ticket_and_refund_are_the_guests() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (event_id, _) = create_event(&e, "SplitAmongAttendees", false).await?;
+    let alice = &e.guests[0];
+    let (bob, carol) = (&e.guests[1], &e.guests[2]);
+
+    // Alice pays for Bob and for Carol: two tickets, neither of them hers.
+    for friend in [bob, carol] {
+        alice.call(e.usdc.id(), "ft_transfer_call")
+            .args_json(json!({ "receiver_id": e.showup.id(), "amount": USDC.to_string(),
+                "msg": json!({ "Rsvp": { "event_id": event_id, "referrer": null, "for_account": friend.id() } }).to_string() }))
+            .deposit(NearToken::from_yoctonear(1)).max_gas()
+            .transact().await?.into_result()?;
+    }
+    assert_eq!(balance(&e, alice).await?, 8 * USDC);
+    let bobs: Option<String> = e.showup.view("ticket_for").args_json(json!({ "event_id": event_id, "account_id": bob.id() })).await?.json()?;
+    let alices: Option<String> = e.showup.view("ticket_for").args_json(json!({ "event_id": event_id, "account_id": alice.id() })).await?.json()?;
+    let bobs = bobs.expect("Bob holds a ticket");
+    assert!(alices.is_none(), "paying for friends doesn't give Alice a ticket");
+
+    // A second gift to Bob is refused; Alice can't check in Bob's ticket; Bob can, and the deposit is his.
+    let again = alice.call(e.usdc.id(), "ft_transfer_call")
+        .args_json(json!({ "receiver_id": e.showup.id(), "amount": USDC.to_string(),
+            "msg": json!({ "Rsvp": { "event_id": event_id, "referrer": null, "for_account": bob.id() } }).to_string() }))
+        .deposit(NearToken::from_yoctonear(1)).max_gas().transact().await?;
+    assert!(again.into_result().is_ok(), "ft_transfer_call itself succeeds");
+    assert_eq!(balance(&e, alice).await?, 8 * USDC, "the refused RSVP's USDC comes back to Alice");
+
+    advance_to(&e.worker, now_ms(&e.worker).await? + 11 * MIN).await?;
+    assert!(check_in(&e, alice, event_id, &bobs).await?.is_failure());
+    check_in(&e, bob, event_id, &bobs).await?.into_result()?;
+    assert_eq!(balance(&e, bob).await?, 11 * USDC, "Bob gets the deposit Alice paid");
+    assert_eq!(balance(&e, alice).await?, 8 * USDC);
+    Ok(())
+}

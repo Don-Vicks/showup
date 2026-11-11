@@ -182,6 +182,17 @@ export async function findTicket(eventId: number, account: string): Promise<Tick
   return mine.find((t) => t.status !== "Cancelled") ?? mine[0] ?? null;
 }
 
+/** Whether a NEAR account exists, so a deposit isn't paid for a mistyped name. */
+export async function accountExists(account: string): Promise<boolean> {
+  const res = await fetch(RPC_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "showup", method: "query", params: { request_type: "view_account", finality: "final", account_id: account } }),
+  });
+  const body = (await res.json()) as { result?: unknown; error?: unknown };
+  return Boolean(body.result) && !body.error;
+}
+
 export const isUpcoming = (e: ShowUpEvent, now = Date.now()) => !e.cancelled && now < e.params.ends_at_ms;
 
 /** What a host has run before: events that ended, and guests who checked in with their own phone. */
@@ -233,13 +244,17 @@ export const call = (methodName: string, args: Record<string, unknown>, deposit 
   actions: [{ type: "FunctionCall", params: { methodName, args, gas: TGAS(gas), deposit } }],
 });
 
-/** Registers the account on USDC (so refunds can reach it), then pays the deposit with a routing message. */
-export function rsvpTransactions(account: string, eventId: number, deposit: string, referrer: string | null): WalletTransaction[] {
+/**
+ * Registers the payer (and the guest, when paying for someone else) on USDC so refunds can reach them, then
+ * pays the deposit with a routing message. With `forAccount`, the ticket and the deposit's refund are the guest's.
+ */
+export function rsvpTransactions(account: string, eventId: number, deposit: string, referrer: string | null, forAccount: string | null = null): WalletTransaction[] {
+  const register = [account, ...(forAccount && forAccount !== account ? [forAccount] : [])];
   return [
-    call("storage_deposit", { account_id: account, registration_only: true }, USDC_STORAGE, 30, USDC),
+    ...register.map((a) => call("storage_deposit", { account_id: a, registration_only: true }, USDC_STORAGE, 30, USDC)),
     call(
       "ft_transfer_call",
-      { receiver_id: CONTRACT, amount: deposit, msg: JSON.stringify({ Rsvp: { event_id: eventId, referrer, for_account: null } }) },
+      { receiver_id: CONTRACT, amount: deposit, msg: JSON.stringify({ Rsvp: { event_id: eventId, referrer, for_account: forAccount } }) },
       ONE_YOCTO,
       150,
       USDC,
