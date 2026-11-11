@@ -199,6 +199,31 @@ pub struct Program {
     pub paid_out: U128,
 }
 
+/// One line of an event's programme.
+#[near(serializers = [borsh, json])]
+#[derive(Clone)]
+pub struct AgendaItem {
+    pub at: String,
+    pub what: String,
+}
+
+/// What a guest or sponsor reads about an event. Kept apart from `Event` (under its own storage key)
+/// so events created before details existed read the same, and the host pays for the bytes.
+#[near(serializers = [borsh, json])]
+#[derive(Clone)]
+pub struct EventDetails {
+    pub host_name: String,
+    pub description: String,
+    /// An https link to the cover image; the image itself isn't stored on chain.
+    pub cover_url: Option<String>,
+    pub agenda: Vec<AgendaItem>,
+}
+
+pub const MAX_DESCRIPTION: usize = 2_000;
+pub const MAX_AGENDA: usize = 12;
+pub const MAX_SHORT_TEXT: usize = 120;
+pub const MAX_URL: usize = 400;
+
 #[near(serializers = [json])]
 pub struct Report {
     pub committed: u32,
@@ -250,6 +275,12 @@ fn buyer_key(event_id: u64, account: &AccountId) -> String {
 
 fn now_ms() -> u64 {
     env::block_timestamp_ms()
+}
+
+/// Storage key of an event's details. Prefixes of the contract's collections are single bytes 0–11, so
+/// this text key can't collide with them.
+fn details_key(event_id: u64) -> Vec<u8> {
+    format!("details:{event_id}").into_bytes()
 }
 
 /// The bytes a door key signs for one 20-second window.
@@ -336,6 +367,23 @@ impl Contract {
             env::current_account_id(),
             "door_check_in,door_record_headcount",
         ))
+    }
+
+    /// `create_event` plus the event's details in one transaction. Attach NEAR for the details' storage
+    /// (about 0.01 NEAR per kilobyte); whatever isn't used comes back.
+    #[payable]
+    pub fn create_event_with_details(&mut self, params: EventParams, details: EventDetails) -> u64 {
+        let id = self.create_event(params);
+        self.write_details(id, details);
+        id
+    }
+
+    /// The host adds or replaces an event's details. Attach NEAR for any extra storage; the rest comes back.
+    #[payable]
+    pub fn set_details(&mut self, event_id: u64, details: EventDetails) {
+        let event = self.event_or_panic(event_id);
+        require!(env::predecessor_account_id() == event.host, "Only the host can edit the details");
+        self.write_details(event_id, details);
     }
 
     /// The host cancels before settlement: every deposit and pledge is refunded in full.
@@ -715,6 +763,16 @@ impl Contract {
         U128(self.owed.get(&account_id).copied().unwrap_or(0))
     }
 
+    pub fn get_details(&self, event_id: u64) -> Option<EventDetails> {
+        env::storage_read(&details_key(event_id)).map(|bytes| {
+            near_sdk::borsh::from_slice(&bytes).unwrap_or_else(|_| env::panic_str("Unreadable details"))
+        })
+    }
+
+    pub fn last_program_id(&self) -> u64 {
+        self.next_program - 1
+    }
+
     pub fn get_program(&self, program_id: u64) -> Option<Program> {
         self.programs.get(&program_id).cloned()
     }
@@ -776,6 +834,28 @@ impl Contract {
     }
 
     // ---------- Internal ----------
+
+    fn write_details(&mut self, event_id: u64, details: EventDetails) {
+        let short = |t: &str| t.chars().count() <= MAX_SHORT_TEXT;
+        require!(short(&details.host_name), "The host name is too long");
+        require!(details.description.chars().count() <= MAX_DESCRIPTION, "The description is too long");
+        require!(details.agenda.len() <= MAX_AGENDA, "At most 12 agenda items");
+        require!(details.agenda.iter().all(|a| short(&a.at) && short(&a.what)), "An agenda item is too long");
+        if let Some(url) = &details.cover_url {
+            require!(url.starts_with("https://") && url.len() <= MAX_URL, "The cover must be an https link");
+        }
+        let before = env::storage_usage();
+        let bytes = near_sdk::borsh::to_vec(&details).unwrap_or_else(|_| env::panic_str("Bad details"));
+        env::storage_write(&details_key(event_id), &bytes);
+        let added = env::storage_usage().saturating_sub(before);
+        let cost = env::storage_byte_cost().saturating_mul(added as u128);
+        let attached = env::attached_deposit();
+        require!(attached >= cost, format!("Attach at least {} for the details' storage", cost.exact_amount_display()));
+        let refund = attached.saturating_sub(cost);
+        if !refund.is_zero() {
+            let _ = Promise::new(env::predecessor_account_id()).transfer(refund);
+        }
+    }
 
     fn event_or_panic(&self, event_id: u64) -> Event {
         self.events.get(&event_id).cloned().unwrap_or_else(|| env::panic_str("No such event"))

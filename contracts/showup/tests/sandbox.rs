@@ -425,3 +425,57 @@ async fn proven_guests_rsvp_free_and_count_for_proven_only_pledges() -> anyhow::
     assert_eq!(r["proven"], 1);
     Ok(())
 }
+
+#[tokio::test]
+async fn the_host_sets_event_details_and_pays_only_for_their_storage() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, _) = create_event(&e, "SplitAmongAttendees", false).await?;
+    let none: Option<Value> = e.showup.view("get_details").args_json(json!({ "event_id": id })).await?.json()?;
+    assert!(none.is_none(), "an event starts without details");
+
+    let details = json!({ "details": {
+        "host_name": "Lagos Builders", "description": "Demos, then food.",
+        "cover_url": "https://example.com/cover.jpg",
+        "agenda": [{ "at": "18:00", "what": "Doors" }, { "at": "18:30", "what": "Demos" }]
+    }, "event_id": id });
+
+    // Without NEAR for the storage, the details are refused.
+    let unpaid = e.host.call(e.showup.id(), "set_details").args_json(&details).transact().await?;
+    assert!(unpaid.is_failure(), "storage must be paid for");
+
+    // Only the host may set them.
+    let stranger = e.guests[0].call(e.showup.id(), "set_details")
+        .args_json(&details).deposit(NearToken::from_millinear(50)).transact().await?;
+    assert!(stranger.is_failure(), "only the host edits details");
+
+    let before = e.host.view_account().await?.balance;
+    e.host.call(e.showup.id(), "set_details")
+        .args_json(&details).deposit(NearToken::from_millinear(500)).transact().await?.into_result()?;
+    let spent = before.as_yoctonear() - e.host.view_account().await?.balance.as_yoctonear();
+    assert!(spent < NearToken::from_millinear(20).as_yoctonear(), "the unused deposit comes back, spent {spent}");
+
+    let got: Value = e.showup.view("get_details").args_json(json!({ "event_id": id })).await?.json()?;
+    assert_eq!(got["host_name"], "Lagos Builders");
+    assert_eq!(got["agenda"][1]["what"], "Demos");
+
+    // A cover must be an https link.
+    let bad = e.host.call(e.showup.id(), "set_details")
+        .args_json(json!({ "event_id": id, "details": { "host_name": "x", "description": "", "cover_url": "javascript:alert(1)", "agenda": [] } }))
+        .deposit(NearToken::from_millinear(50)).transact().await?;
+    assert!(bad.is_failure(), "non-https covers are refused");
+
+    // Create and describe in one call.
+    let now = now_ms(&e.worker).await?;
+    let id2: u64 = e.host.call(e.showup.id(), "create_event_with_details")
+        .args_json(json!({ "params": {
+            "title": "Rust night", "venue": "Yaba", "starts_at_ms": now + 10 * MIN, "ends_at_ms": now + 20 * MIN,
+            "capacity": 20, "deposit": USDC.to_string(), "cancel_cutoff_ms": now + 5 * MIN,
+            "no_show_rule": "ToHost", "waive_after": null, "flag_pct": 20, "flag_abs": 0, "require_headcount": false
+        }, "details": { "host_name": "Rustaceans", "description": "Bring a laptop.", "cover_url": null, "agenda": [] } }))
+        .deposit(NearToken::from_millinear(50)).transact().await?.json()?;
+    let got2: Value = e.showup.view("get_details").args_json(json!({ "event_id": id2 })).await?.json()?;
+    assert_eq!(got2["description"], "Bring a laptop.");
+    let last_program: u64 = e.showup.view("last_program_id").await?.json()?;
+    assert_eq!(last_program, 0);
+    Ok(())
+}
