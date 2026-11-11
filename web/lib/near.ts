@@ -172,6 +172,16 @@ export async function listPrograms(): Promise<Program[]> {
   return programs.filter((p): p is Program => p !== null);
 }
 
+/**
+ * The ticket an account holds for an event. `ticket_for` only knows who first RSVP'd, so a ticket passed
+ * on with `nft_transfer` is found by its current owner instead.
+ */
+export async function findTicket(eventId: number, account: string): Promise<TicketView | null> {
+  const tickets = await view<TicketView[]>("get_tickets", { event_id: eventId, limit: 300 });
+  const mine = tickets.filter((t) => t.owner === account);
+  return mine.find((t) => t.status !== "Cancelled") ?? mine[0] ?? null;
+}
+
 export const isUpcoming = (e: ShowUpEvent, now = Date.now()) => !e.cancelled && now < e.params.ends_at_ms;
 
 /** What a host has run before: events that ended, and guests who checked in with their own phone. */

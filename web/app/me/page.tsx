@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { txUrl } from "@/lib/config";
 import { formatWhen } from "@/lib/format";
-import { call, formatUsdc, listEvents, listPrograms, statusLabel, view, type EventCard, type Program, type Report, type TicketView } from "@/lib/near";
+import { call, findTicket, formatUsdc, listEvents, listPrograms, statusLabel, view, type EventCard, type Program, type Report, type TicketView } from "@/lib/near";
 import { useWallet } from "@/lib/wallet";
 import { EventTile } from "../EventTile";
 
@@ -33,16 +33,10 @@ export default function Me() {
     const [events, programs, owed, delays] = await Promise.all([listEvents(), listPrograms().catch(() => []), view<string>("owed", { account_id: account }), view<Delays>("delays")]);
     const mineIds = events.filter((e) => e.host === account || e.pledges.some((p) => p.sponsor === account)).map((e) => e.id);
     const reports = Object.fromEntries(await Promise.all(mineIds.map(async (id) => [id, await view<Report>("report", { event_id: id })] as const)));
-    const tokenIds = await Promise.all(events.map((e) => view<string | null>("ticket_for", { event_id: e.id, account_id: account }).catch(() => null)));
-    const tickets = (
-      await Promise.all(
-        tokenIds.map(async (t, i) => {
-          if (!t) return null;
-          const ticket = await view<TicketView | null>("get_ticket", { token_id: t });
-          return ticket && ticket.owner === account ? { ticket, event: events[i] } : null;
-        }),
-      )
-    ).filter((x): x is { ticket: TicketView; event: EventCard } => x !== null);
+    const tickets = (await Promise.all(events.map(async (event) => {
+      const ticket = await findTicket(event.id, account).catch(() => null);
+      return ticket ? { ticket, event } : null;
+    }))).filter((x): x is { ticket: TicketView; event: EventCard } => x !== null);
     setData({ events, reports, tickets, programs: programs.filter((p) => p.owner === account), owed, delays });
   }, [account]);
 

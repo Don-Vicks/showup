@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { txUrl } from "@/lib/config";
-import { call, formatUsdc, view, type TicketView } from "@/lib/near";
+import { call, findTicket, formatUsdc, type TicketView } from "@/lib/near";
 import { useWallet } from "@/lib/wallet";
 
 /** Opened by scanning the door screen: checks the signed-in guest's ticket in with that code. */
@@ -15,15 +15,17 @@ function CheckIn() {
   const sig = (q.get("s") ?? "").replace(/-/g, "+").replace(/_/g, "/");
   const { account, signIn, send, busy } = useWallet();
   const [ticket, setTicket] = useState<TicketView | null | undefined>(undefined);
+  const [readError, setReadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<{ kind: "idle" } | { kind: "working" } | { kind: "done"; tx: string | null } | { kind: "failed"; message: string }>({ kind: "idle" });
 
   useEffect(() => {
     if (!account) return;
-    view<string | null>("ticket_for", { event_id: eventId, account_id: account })
-      .then((id) => (id ? view<TicketView | null>("get_ticket", { token_id: id }) : null))
+    setReadError(false);
+    findTicket(eventId, account)
       .then(setTicket)
-      .catch(() => setTicket(null));
-  }, [account, eventId, state.kind]);
+      .catch(() => setReadError(true));
+  }, [account, eventId, state.kind, attempt]);
 
   const go = async () => {
     if (!ticket) return;
@@ -56,6 +58,11 @@ function CheckIn() {
       <h1 className="display h1" style={{ fontSize: "clamp(34px, 6vw, 56px)" }}>Check in</h1>
       {!account ? (
         <button type="button" className="btn btn-primary" onClick={() => signIn()} disabled={busy}>Sign in to check in</button>
+      ) : readError ? (
+        <span className="stack" style={{ gap: 10 }}>
+          <p className="error" style={{ margin: 0 }}>Couldn&apos;t reach NEAR to find your ticket. Check your connection.</p>
+          <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>Try again</button>
+        </span>
       ) : ticket === undefined ? (
         <p className="muted">Finding your ticket…</p>
       ) : ticket === null ? (

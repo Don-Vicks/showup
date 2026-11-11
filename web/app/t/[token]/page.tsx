@@ -12,19 +12,33 @@ export default function TicketPage({ params }: { params: Promise<{ token: string
   const { token } = use(params);
   const { account, send, busy } = useWallet();
   const [ticket, setTicket] = useState<TicketView | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
   const [event, setEvent] = useState<ShowUpEvent | null>(null);
   const [friend, setFriend] = useState("");
   const [note, setNote] = useState<{ ok: boolean; text: string; tx?: string | null } | null>(null);
 
   const load = useCallback(async () => {
-    const t = await view<TicketView | null>("get_ticket", { token_id: token }).catch(() => null);
-    setTicket(t);
-    if (t) setEvent(await view<ShowUpEvent | null>("get_event", { event_id: t.event_id }).catch(() => null));
+    setFailed(null);
+    try {
+      const t = await view<TicketView | null>("get_ticket", { token_id: token });
+      if (!t) return setFailed(`There's no ticket #${token}.`);
+      setTicket(t);
+      setEvent(await view<ShowUpEvent | null>("get_event", { event_id: t.event_id }));
+    } catch {
+      setFailed("Couldn't reach NEAR to read this ticket. Check your connection.");
+    }
   }, [token]);
   useEffect(() => {
     load();
   }, [load]);
 
+  if (failed)
+    return (
+      <main className="wrap page">
+        <p className="error">{failed}</p>
+        <button type="button" className="btn btn-small" style={{ alignSelf: "flex-start" }} onClick={() => load()}>Try again</button>
+      </main>
+    );
   if (!ticket || !event) return <main className="wrap page"><p className="muted">Loading ticket…</p></main>;
   const p = event.params;
   const mine = account === ticket.owner;
