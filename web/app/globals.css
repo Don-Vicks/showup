@@ -86,3 +86,4 @@ th { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: 
 .nav { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; font-weight: 500; }
 .nav a { color: var(--ink); }
 .page { padding: 40px 0 72px; display: flex; flex-direction: column; gap: 28px; }
+.field textarea { padding: 14px; border: 2px solid var(--ink); border-radius: 12px; font: inherit; font-weight: 400; background: var(--paper); resize: vertical; }

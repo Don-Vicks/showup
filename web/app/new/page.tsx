@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { CONTRACT, txUrl } from "@/lib/config";
-import { call, parseUsdc, view, type NoShowRule } from "@/lib/near";
+import { DETAILS_DEPOSIT, call, parseAgenda, parseUsdc, view, type NoShowRule } from "@/lib/near";
 import { useWallet } from "@/lib/wallet";
+import { DetailsFields, EMPTY_DETAILS, type DetailsDraft } from "../DetailsFields";
 
 const toLocalInput = (ms: number) => {
   const d = new Date(ms - new Date().getTimezoneOffset() * 60_000);
@@ -22,6 +23,7 @@ export default function NewEvent() {
   const [deposit, setDeposit] = useState("1.00");
   const [rule, setRule] = useState<NoShowRule>("SplitAmongAttendees");
   const [waiver, setWaiver] = useState(true);
+  const [details, setDetails] = useState<DetailsDraft>(EMPTY_DETAILS);
   const [state, setState] = useState<{ kind: "idle" } | { kind: "working" } | { kind: "done"; id: number; tx: string | null } | { kind: "failed"; message: string }>({ kind: "idle" });
 
   const publish = async () => {
@@ -45,7 +47,15 @@ export default function NewEvent() {
         flag_abs: 5,
         require_headcount: true,
       };
-      const tx = await send([call("create_event", { params }, "0", 50)]);
+      const cover = details.coverUrl.trim();
+      if (cover && !cover.startsWith("https://")) throw new Error("The cover link must start with https://");
+      const eventDetails = {
+        host_name: details.hostName.trim(),
+        description: details.description.trim(),
+        cover_url: cover || null,
+        agenda: parseAgenda(details.agenda),
+      };
+      const tx = await send([call("create_event_with_details", { params, details: eventDetails }, DETAILS_DEPOSIT, 80)]);
       const id = await view<number>("last_event_id");
       setState({ kind: "done", id, tx });
     } catch (e) {
@@ -85,6 +95,11 @@ export default function NewEvent() {
           </section>
 
           <section className="card stack">
+            <h2 className="h2" style={{ fontSize: 20 }}>Tell people about it</h2>
+            <DetailsFields value={details} onChange={setDetails} />
+          </section>
+
+          <section className="card stack">
             <h2 className="h2" style={{ fontSize: 20 }}>The commitment</h2>
             <label className="field">Deposit (USDC)<input inputMode="decimal" value={deposit} onChange={(e) => setDeposit(e.target.value)} className="mono" /></label>
             <fieldset style={{ border: 0, padding: 0, margin: 0 }} className="stack">
@@ -118,6 +133,7 @@ export default function NewEvent() {
             {state.kind === "working" ? "Confirm in your wallet…" : "Publish event"}
           </button>
           {state.kind === "failed" && <p className="error">{state.message}</p>}
+          <span className="muted" style={{ fontSize: 14 }}>Your wallet asks for 0.06 NEAR to store the description on chain. What isn&apos;t used comes straight back.</span>
         </aside>
       </div>
     </main>
