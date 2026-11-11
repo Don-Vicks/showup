@@ -76,6 +76,7 @@ export default async function ProofPage() {
                 <span style={{ lineHeight: 1.55 }}>
                   48 hours after the event, the contract pays the host 1 USDC for each of the 2 guests who checked in with their own phone, and gives the sponsor back the other 2. guest2&apos;s desk check-in doesn&apos;t count, and nor does guest4.
                 </span>
+                <Link href={`/e/${PROOF_EVENT_ID}/receipt`} style={{ color: "#fff", fontWeight: 700 }}>The sponsor&apos;s receipt: who counted and why →</Link>
                 {pledge?.done ? (
                   <b>Done: {formatUsdc(pledge.paid_to_host)} USDC went to the host, the rest back to the sponsor.</b>
                 ) : releaseAt ? (

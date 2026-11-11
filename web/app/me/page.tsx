@@ -188,7 +188,7 @@ export default function Me() {
                       const waiting = !p.done && r?.flagged && now >= releaseAt;
                       return (
                         <tr key={`${e.id}-${index}`}>
-                          <td><Link href={`/e/${e.id}/report`}>{e.params.title}</Link><br /><span className="muted" style={{ fontSize: 14 }}>{formatWhen(e.params.starts_at_ms)}</span></td>
+                          <td><Link href={`/e/${e.id}/report`}>{e.params.title}</Link><br /><span className="muted" style={{ fontSize: 14 }}>{formatWhen(e.params.starts_at_ms)}</span><br /><Link href={`/e/${e.id}/receipt?sponsor=${encodeURIComponent(account)}`} style={{ fontSize: 14, fontWeight: 700 }}>Receipt</Link></td>
                           <td className="mono">{formatUsdc(p.rate)} × up to {p.cap}{p.proven_only ? " (proven)" : ""}</td>
                           <td>{counted}{r?.flagged && now >= e.params.ends_at_ms ? " · flagged" : ""}</td>
                           <td>

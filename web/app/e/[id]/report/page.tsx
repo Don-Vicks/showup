@@ -83,6 +83,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
               </tbody>
             </table>
           </div>
+          {(event.pledges.length > 0 || event.programs.some((l) => l.approved)) && <Link href={`/e/${event.id}/receipt`} className="btn btn-small btn-primary">Sponsor receipt: who counted and why</Link>}
           <a href={accountUrl(CONTRACT)} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>Every transaction on the NEAR explorer</a>
         </section>
       </div>

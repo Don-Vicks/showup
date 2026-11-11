@@ -101,7 +101,7 @@ export default function SponsorPage({ params }: { params: Promise<{ id: string }
           {state.kind === "failed" && <p className="error" style={{ margin: 0 }}>{state.message}</p>}
           {state.kind === "done" && (
             <p className="ok" style={{ margin: 0 }}>
-              Pledged. {state.tx && <a href={txUrl(state.tx)} target="_blank" rel="noreferrer">See the transaction</a>} · <Link href="/me#pledges">My pledges</Link>
+              Pledged. {state.tx && <a href={txUrl(state.tx)} target="_blank" rel="noreferrer">See the transaction</a>} · <Link href={`/e/${eventId}/receipt${account ? `?sponsor=${encodeURIComponent(account)}` : ""}`}>Your receipt</Link> · <Link href="/me#pledges">My pledges</Link>
             </p>
           )}
           {mine.length > 0 && (
