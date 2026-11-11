@@ -14,12 +14,15 @@ Free RSVPs cost nothing to ignore, so hosts plan food, seats and venues for peop
 
 Built for NEAR HACKATHON (1–14 Nov 2026). Tracks: realworld, social, nfts.
 
+**No wallet? Start at [showup-lake.vercel.app/proof](https://showup-lake.vercel.app/proof):** one real testnet event, step by step, with every transaction linked and the numbers read live from the contract.
+
 ## Status
 
 | Piece | State |
 | --- | --- |
 | Contract: events, deposits, ticket NFTs (NEP-171), two-sided check-in, desk check-in, settlement, sponsor pledges, flags, bounty programs, cancellations | Built; sandbox tests below |
-| Web app: home, create event, event page with RSVP, ticket, check-in link, door screen, report, sponsor page, X share card | Built; deployed at https://showup-lake.vercel.app |
+| Contract: event details (host name, description, cover link, agenda) under their own storage key, paid for by the host | Built; sandbox test below; on testnet since 11 Nov |
+| Web app: home with an entry point per role, the `/proof` walkthrough, event page with cover and details, create and edit event, ticket, check-in link, door screen, report, sponsor browse and pledge pages, My ShowUp (tickets, hosted events with settle and release, pledges with flagged decisions), bounty programs (list, create, fund, apply, approve), X share card | Built; deployed at https://showup-lake.vercel.app |
 | Contract on NEAR testnet | Deployed at [`showup-app.testnet`](https://testnet.nearblocks.io/address/showup-app.testnet) (10 Nov), with the real delays: 1 hour, 48 hours, 7 days |
 | Crowd headcount from photos inside NEAR AI's TEEs | Not built. The contract stores counts and their evidence hash; until counts exist, sponsor payouts for events that require one wait for the sponsor |
 | Paying the deposit from another chain (NEAR Intents 1Click) | Not built; Intents has no testnet (FAQ Q-007) |
@@ -33,7 +36,7 @@ Built for NEAR HACKATHON (1–14 Nov 2026). Tracks: realworld, social, nfts.
 cd contracts && cargo test -p showup --test sandbox -- --test-threads=1
 ```
 
-Each test deploys ShowUp and a USDC-like token (`contracts/mock-ft`) to a sandbox and runs a whole story: deposits returned at the door, no-shows split by referral weight, forged and expired door codes refused, a sponsor paying per verified guest, a flagged event refused by its sponsor, cancels and ticket transfers, an event cancelled with refunds, a bounty program, and a free RSVP for a proven guest. The sandbox tests deploy with minutes instead of days for the post-event waits (`Delays` in `new`); real deployments use 1 hour, 48 hours and 7 days.
+Each test deploys ShowUp and a USDC-like token (`contracts/mock-ft`) to a sandbox and runs a whole story: deposits returned at the door, no-shows split by referral weight, forged and expired door codes refused, a sponsor paying per verified guest, a flagged event refused by its sponsor, cancels and ticket transfers, an event cancelled with refunds, a bounty program, a free RSVP for a proven guest, and event details that only the host can set and must pay storage for. The sandbox tests deploy with minutes instead of days for the post-event waits (`Delays` in `new`); real deployments use 1 hour, 48 hours and 7 days.
 
 **The web app:**
 
@@ -61,6 +64,12 @@ Set `NEXT_PUBLIC_SHOWUP_CONTRACT` to a deployed ShowUp contract (and `NEXT_PUBLI
 | Everything, if the host cancels | Back to whoever paid it |
 
 There is no withdraw method for hosts, sponsors or the deployer. End-of-event payouts are credited and paid with `withdraw` / `withdraw_for`.
+
+## Testnet data
+
+- **Event 4, "ShowUp test run"** is a real run with test accounts (10–11 Nov): four RSVPs, two phone check-ins, one desk check-in, one no-show, a refused check-in, settlement and payouts. `/proof` lists its transactions; the sponsor payout opens 48 hours after it ended.
+- **Events 1–3 are demo events** marked "(demo)", hosted by `demo-host.showup-app.testnet`, with descriptions written for the demo. Their cover photos are from [Unsplash](https://unsplash.com) (Unsplash License), not from those events.
+- **Program 1** is a demo bounty program funded with 10 test USDC by `sponsor.showup-app.testnet`; event 1 is approved and event 3 has applied.
 
 ## Repository
 
