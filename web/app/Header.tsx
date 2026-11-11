@@ -28,6 +28,8 @@ export function Header() {
           <Link href="/sponsor">Sponsor</Link>
           <Link href="/proof">See it work</Link>
           {account && <Link href="/me">My ShowUp</Link>}
+        </nav>
+        <div className="account">
           {account ? (
             <button type="button" className="btn btn-small" onClick={() => signOut()} title="Sign out">
               {account.length > 24 ? `${account.slice(0, 10)}…${account.slice(-6)}` : account}
@@ -37,7 +39,7 @@ export function Header() {
               Sign in
             </button>
           )}
-        </nav>
+        </div>
       </div>
     </header>
   );

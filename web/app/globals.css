@@ -83,9 +83,10 @@ th { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: 
 .logo { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 900; font-size: 22px; color: var(--ink); text-decoration: none; }
 .logo:hover { color: var(--ink); }
 .logo-mark { display: inline-flex; width: 34px; height: 34px; border-radius: 10px; background: var(--tomato); border: 2px solid var(--ink); align-items: center; justify-content: center; transform: rotate(-6deg); }
-.nav { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; font-weight: 500; }
+.nav { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; font-weight: 500; order: 2; }
+.account { order: 3; }
 .nav a { color: var(--ink); }
-.page { padding: 40px 0 72px; display: flex; flex-direction: column; gap: 28px; }
+.page { padding-top: 40px; padding-bottom: 72px; display: flex; flex-direction: column; gap: 28px; }
 
 .role-card { transition: transform 120ms ease, box-shadow 120ms ease; }
 .role-card.block-ink { box-shadow: 4px 4px 0 var(--tomato); }
@@ -106,4 +107,13 @@ th { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: 
   .site-header, .no-print { display: none !important; }
   .card, .shadow, .shadow-lg { box-shadow: none !important; }
   .block-cobalt, .block-ink, .block-tomato { background: #fff !important; color: #111 !important; }
+}
+
+@media (max-width: 640px) {
+  .wrap { padding: 0 16px; }
+  .page { padding-top: 24px; gap: 22px; }
+  .site-header .wrap { gap: 10px 12px; padding-top: 12px; padding-bottom: 12px; }
+  .site-header .nav { order: 4; width: 100%; gap: 16px; font-size: 15px; }
+  .logo { font-size: 20px; }
+  .card { padding: 18px; }
 }
