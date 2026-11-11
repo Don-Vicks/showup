@@ -1,8 +1,8 @@
 # ShowUp
 
-**RSVPs backed by a small deposit you get back at the door, and sponsors who pay hosts per verified attendee.**
+**Sponsor money that only pays for people who came, and RSVPs backed by a dollar you get back at the door.**
 
-Free RSVPs cost nothing to ignore, so hosts plan food, seats and venues for people who never come, and sponsors pay flat fees for headcounts nobody can check. ShowUp puts a small USDC deposit behind every RSVP and moves event money by rules in a NEAR contract:
+Ecosystems, brands and communities fund meetups with flat fees and get back a headcount nobody can check. Free RSVPs cost nothing to ignore, so hosts also plan food and seats for people who never come. ShowUp moves event money by rules in a NEAR contract, and gives every sponsor a receipt that lists which guests counted and why:
 
 1. **Guests commit** with a deposit. It sits in the contract, not with the host.
 2. **At the door, guests check in from their own phone** by scanning a code that the door screen signs and rotates every 20 seconds. The deposit comes straight back.
@@ -22,7 +22,7 @@ Built for NEAR HACKATHON (1–14 Nov 2026). Tracks: realworld, social, nfts.
 | --- | --- |
 | Contract: events, deposits, ticket NFTs (NEP-171), two-sided check-in, desk check-in, settlement, sponsor pledges, flags, bounty programs, cancellations | Built; sandbox tests below |
 | Contract: event details (host name, description, cover link, agenda) under their own storage key, paid for by the host | Built; sandbox test below; on testnet since 11 Nov |
-| Web app: home with an entry point per role, the `/proof` walkthrough, event page with cover and details, create and edit event, ticket, check-in link, door screen, report, sponsor browse and pledge pages, My ShowUp (tickets, hosted events with settle and release, pledges with flagged decisions), bounty programs (list, create, fund, apply, approve), X share card | Built; deployed at https://showup-lake.vercel.app |
+| Web app: home with an entry point per role, the `/proof` walkthrough, event page with cover and details, create and edit event, ticket, check-in link, door screen, report, sponsor receipt (every guest, counted or not, and why), sponsor browse and pledge pages, My ShowUp (tickets, hosted events with settle and release, pledges with flagged decisions), bounty programs (list, create, fund, apply, approve), X share card | Built; deployed at https://showup-lake.vercel.app |
 | Contract on NEAR testnet | Deployed at [`showup-app.testnet`](https://testnet.nearblocks.io/address/showup-app.testnet) (10 Nov), with the real delays: 1 hour, 48 hours, 7 days |
 | Crowd headcount from photos inside NEAR AI's TEEs | Not built. The contract stores counts and their evidence hash; until counts exist, sponsor payouts for events that require one wait for the sponsor |
 | Paying the deposit from another chain (NEAR Intents 1Click) | Not built; Intents has no testnet (FAQ Q-007) |
@@ -52,6 +52,7 @@ Set `NEXT_PUBLIC_SHOWUP_CONTRACT` to a deployed ShowUp contract (and `NEXT_PUBLI
 - The guest's phone camera opens the code's link, and the guest's own account calls `check_in(token, window, signature)`. The contract checks the ed25519 signature against the event's door key and that the window is from the last 2 minutes. So a check-in needs both the door and the guest.
 - A guest without a phone can be checked in at the desk (`door_check_in`). That refunds the deposit but doesn't count for sponsors.
 - A guest who has checked in at events by other hosts is "proven"; sponsors can choose to pay for proven guests only, and hosts can waive the deposit for guests with enough past check-ins.
+- **What this doesn't stop yet:** one person holding several NEAR accounts could check each of them in at the door. The defences today: an event that requires a crowd count is flagged when none is recorded, so its sponsor payouts wait for the sponsor, who decides with the receipt (`/e/<id>/receipt`) listing every counted account; sponsors can pay for proven guests only; and nothing is paid until 48 hours after the event. A crowd count from photos inside NEAR AI's TEEs is designed in SPEC.md but not built.
 
 ## Money rules
 
