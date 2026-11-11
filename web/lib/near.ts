@@ -107,29 +107,46 @@ export interface Report {
   no_show_pot: string;
 }
 
-/** Read-only call on a contract through JSON-RPC. */
+/** Read-only call on a contract through JSON-RPC. Busy or flaky RPC answers are retried; contract errors aren't. */
 export async function view<T>(method: string, args: Record<string, unknown> = {}, contract = CONTRACT): Promise<T> {
   if (!contract) throw new Error("NO_CONTRACT");
-  const res = await fetch(RPC_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "showup",
-      method: "query",
-      params: {
-        request_type: "call_function",
-        finality: "optimistic",
-        account_id: contract,
-        method_name: method,
-        args_base64: btoa(JSON.stringify(args)),
-      },
-    }),
-  });
-  const body = (await res.json()) as { result?: { result?: number[]; error?: string }; error?: { message?: string } };
-  if (body.error || !body.result?.result) throw new Error(body.result?.error ?? body.error?.message ?? "RPC_ERROR");
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(body.result.result))) as T;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 250 * 2 ** attempt));
+    let body: { result?: { result?: number[]; error?: string }; error?: { message?: string } };
+    try {
+      const res = await fetch(RPC_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "showup",
+          method: "query",
+          params: {
+            request_type: "call_function",
+            finality: "optimistic",
+            account_id: contract,
+            method_name: method,
+            args_base64: btoa(JSON.stringify(args)),
+          },
+        }),
+      });
+      if (!res.ok) throw new Error(`RPC_HTTP_${res.status}`);
+      body = await res.json();
+    } catch (e) {
+      lastError = e;
+      continue;
+    }
+    // The contract itself refused (a panic, a missing method): retrying won't help.
+    if (body.result?.error) throw new Error(body.result.error);
+    if (body.error || !body.result?.result) {
+      lastError = new Error(body.error?.message ?? "RPC_ERROR");
+      continue;
+    }
+    return JSON.parse(new TextDecoder().decode(new Uint8Array(body.result.result))) as T;
+  }
+  throw lastError instanceof Error ? lastError : new Error("RPC_ERROR");
 }
 
 export async function getEvent(id: number): Promise<EventCard | null> {
