@@ -110,7 +110,7 @@ export default function DoorPage({ params }: { params: Promise<{ id: string }> }
         </div>
         <div className="card stack" style={{ color: "#111" }}>
           <b>Crowd count</b>
-          <span style={{ lineHeight: 1.5 }}>Counting crowd photos inside NEAR AI&apos;s secure hardware is not built yet. Until it is, this event&apos;s sponsor payouts are held for the sponsor&apos;s approval.</span>
+          <span style={{ lineHeight: 1.5 }}>Counting crowd photos inside NEAR AI&apos;s secure hardware is not built yet. {event.params.require_headcount ? " Until it is, this event's sponsor payouts are held for the sponsor's approval." : " This event doesn't require a count, so sponsors pay for phone check-ins."}</span>
         </div>
         <div className="stack">
           <label className="field">No phone? Ticket number
