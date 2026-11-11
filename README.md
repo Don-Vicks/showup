@@ -22,7 +22,7 @@ Built for NEAR HACKATHON (1–14 Nov 2026). Tracks: realworld, social, nfts.
 | --- | --- |
 | Contract: events, deposits, ticket NFTs (NEP-171), two-sided check-in, desk check-in, settlement, sponsor pledges, flags, bounty programs, cancellations | Built; sandbox tests below |
 | Contract: event details (host name, description, cover link, agenda) under their own storage key, paid for by the host | Built; sandbox test below; on testnet since 11 Nov |
-| Web app: home with an entry point per role, the `/proof` walkthrough, event page with cover and details, create and edit event, ticket, check-in link, door screen, report, sponsor receipt (every guest, counted or not, and why), sponsor browse and pledge pages, My ShowUp (tickets, hosted events with settle and release, pledges with flagged decisions), bounty programs (list, create, fund, apply, approve), X share card | Built; deployed at https://showup-lake.vercel.app |
+| Web app: home with an entry point per role, the `/proof` walkthrough, event page with cover, details and paying the deposit for someone else, create and edit event, ticket, check-in link, door screen, report, sponsor receipt (every guest, counted or not, and why), sponsor browse and pledge pages, My ShowUp (tickets, hosted events with settle and release, pledges with flagged decisions), bounty programs (list, create, fund, apply, approve), X share card | Built; deployed at https://showup-lake.vercel.app |
 | Contract on NEAR testnet | Deployed at [`showup-app.testnet`](https://testnet.nearblocks.io/address/showup-app.testnet) (10 Nov), with the real delays: 1 hour, 48 hours, 7 days |
 | Crowd headcount from photos inside NEAR AI's TEEs | Not built. The contract stores counts and their evidence hash; until counts exist, sponsor payouts for events that require one wait for the sponsor |
 | Paying the deposit from another chain (NEAR Intents 1Click) | Not built; Intents has no testnet (FAQ Q-007) |
@@ -36,7 +36,7 @@ Built for NEAR HACKATHON (1–14 Nov 2026). Tracks: realworld, social, nfts.
 cd contracts && cargo test -p showup --test sandbox -- --test-threads=1
 ```
 
-Each test deploys ShowUp and a USDC-like token (`contracts/mock-ft`) to a sandbox and runs a whole story: deposits returned at the door, no-shows split by referral weight, forged and expired door codes refused, a sponsor paying per verified guest, a flagged event refused by its sponsor, cancels and ticket transfers, an event cancelled with refunds, a bounty program, a free RSVP for a proven guest, and event details that only the host can set and must pay storage for. The sandbox tests deploy with minutes instead of days for the post-event waits (`Delays` in `new`); real deployments use 1 hour, 48 hours and 7 days.
+Each test deploys ShowUp and a USDC-like token (`contracts/mock-ft`) to a sandbox and runs a whole story: deposits returned at the door, no-shows split by referral weight, forged and expired door codes refused, a sponsor paying per verified guest, a flagged event refused by its sponsor, cancels and ticket transfers, an event cancelled with refunds, a bounty program, a free RSVP for a proven guest, a deposit paid by a friend, and event details that only the host can set and must pay storage for. The sandbox tests deploy with minutes instead of days for the post-event waits (`Delays` in `new`); real deployments use 1 hour, 48 hours and 7 days.
 
 **The web app:**
 
@@ -71,6 +71,25 @@ There is no withdraw method for hosts, sponsors or the deployer. End-of-event pa
 - **Event 4, "ShowUp test run"** is a real run with test accounts (10–11 Nov): four RSVPs, two phone check-ins, one desk check-in, one no-show, a refused check-in, settlement and payouts. `/proof` lists its transactions; the sponsor payout opens 48 hours after it ended.
 - **Events 1–3 are demo events** marked "(demo)", hosted by `demo-host.showup-app.testnet`, with descriptions written for the demo. Their cover photos are from [Unsplash](https://unsplash.com) (Unsplash License), not from those events.
 - **Program 1** is a demo bounty program funded with 10 test USDC by `sponsor.showup-app.testnet`; event 1 is approved and event 3 has applied.
+
+## Claims, code and tests
+
+Contract code is in `contracts/showup/src/lib.rs`; tests are in `contracts/showup/tests/sandbox.rs` and run on a local NEAR node.
+
+| Claim | Code | Test |
+| --- | --- | --- |
+| A deposit sits in the contract and comes back to the ticket holder at check-in | `ft_on_transfer`, `mint_ticket`, `check_in` | `deposits_come_back_at_the_door_and_no_shows_are_split_by_referral_weight` |
+| A check-in needs the ticket holder's own account and a door code signed in the last 2 minutes; forged, expired and other people's codes fail | `check_in` (`ed25519_verify`, window check, owner check) | `a_check_in_needs_a_fresh_door_signature_from_the_ticket_holder` |
+| No-show deposits are split by weight 2 plus 1 per referred guest who came (up to 3), or go to the host | `settle` | `deposits_come_back_…_split_by_referral_weight` |
+| A sponsor pays `rate × verified guests` (capped) 48 hours after; the rest goes back; desk check-ins don't count | `release_sponsors` | `a_sponsor_pays_the_host_per_verified_guest_and_gets_the_rest_back` |
+| A flagged event's payout waits for the sponsor, who can refuse | `report` (flag), `sponsor_decide` | `a_flagged_event_waits_for_the_sponsor_who_can_refuse` |
+| Tickets cancel for a refund before the cutoff and change hands until the start; the new holder checks in and gets the deposit | `cancel`, `nft_transfer` guard | `tickets_cancel_before_the_cutoff_and_change_hands_until_the_start` |
+| Someone else can pay the deposit; the ticket and the refund are the guest's | `DepositMsg::Rsvp { for_account }` | `a_friend_pays_the_deposit_and_the_ticket_and_refund_are_the_guests` |
+| A cancelled event refunds every deposit and pledge | `cancel_event` | `cancelling_the_event_refunds_every_deposit_and_pledge` |
+| A bounty program pays approved events and keeps the unused budget | `create_program`, `program_approve`, `release_sponsors` | `a_bounty_program_pays_approved_events_and_keeps_the_rest_of_its_budget` |
+| Guests seen at other hosts' events are "proven": they can RSVP free and count for proven-only pledges | `rsvp_waived`, `check_in` (`hosts_seen`) | `proven_guests_rsvp_free_and_count_for_proven_only_pledges` |
+| Only the host sets an event's details, and pays for their storage | `create_event_with_details`, `set_details` | `the_host_sets_event_details_and_pays_only_for_their_storage` |
+| The receipt lists every ticket with the reason it counted or didn't | `web/app/e/[id]/receipt/page.tsx` | Read from the contract's `get_tickets` and `report`; see `/e/4/receipt` |
 
 ## Repository
 
